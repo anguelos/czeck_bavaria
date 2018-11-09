@@ -24,8 +24,9 @@ client_jinja_template="""<!doctype html>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script>
         var rectangles_ltrb = [];
-
         var captions = [];
+        var deleted_rectangles_ltrb = [];
+        var deleted_captions = [];
         var active_box=-1;
         $(document).ready(function(){
             $.when($.ajax("/{{id}}.json")).then(function(data,textStatus,jqXHR){
@@ -41,6 +42,7 @@ client_jinja_template="""<!doctype html>
                 draw_boxes();
             });
 
+            var caption_prefix=document.getElementById("CaptionPrefix").innerHTML;
             var img_id="{{id}}";
             var layer_image=$('#layer_image')[0];
             var layer_boxes=$('#layer_boxes')[0];
@@ -180,7 +182,8 @@ client_jinja_template="""<!doctype html>
                     var b=Math.round(Math.max(mousePos.y,begin_y));
                     if((r-l)*(b-t)>25){
                         active_box=rectangles_ltrb.push([l,t,r,b])-1;
-                        captions.push("");
+                        //captions.push(caption_prefix);
+                        captions.push(caption_prefix+"@");
                         draw_boxes();
                         draw_active();
                         upload_rectangles_captions();
@@ -205,20 +208,44 @@ client_jinja_template="""<!doctype html>
                     switch(evt.keyCode){
                         case 13: //enter -> edit caption
                             if(active_box>=0){
-                                captions[active_box]=window.prompt("sometext",captions[active_box]);
+                                var current_caption=(captions[active_box]+"@").split("@")[1];
+                                captions[active_box]=caption_prefix+"@"+window.prompt("Caption",current_caption);
                                 draw_boxes();
                             }else{
-                                alert()
+                                alert("No object selected");
                             }
                             break;
+                        case 101: //e -> edit next caption
+                            if(active_box>=0){
+                                draw_boxes();
+                                active_box+=1;
+                                active_box=active_box%rectangles_ltrb.length;
+                                var current_caption=(captions[active_box]+"@").split("@")[1];
+                                captions[active_box]=caption_prefix+"@"+window.prompt("Caption",current_caption);
+                                draw_boxes();
+                            }else{
+                                alert("No object selected");
+                            }
+                            break;                        
                         case 110: //n -> next
                             active_box+=1;
                             active_box=active_box%rectangles_ltrb.length;
                             draw_active();
                             break;
+                        case 112: //p -> next
+                            active_box+=(rectangles_ltrb.length+1);
+                            active_box=active_box%rectangles_ltrb.length;
+                            draw_active();
+                            break;
+                        case 99: // c -> edit caption prefix
+                            caption_prefix=window.prompt("Object Type",caption_prefix);
+                            document.getElementById("CaptionPrefix").innerHTML=caption_prefix;
+                            break;
                         case 100: //d -> delete
-                            draw_boxes();
+                            //draw_boxes();
                             if(active_box>=0){
+                                deleted_rectangles_ltrb.push(rectangles_ltrb[active_box]);
+                                deleted_captions.push(captions[active_box]);
                                 rectangles_ltrb.splice(active_box,1);
                                 captions.splice(active_box,1);
                                 active_box=active_box%rectangles_ltrb.length;
@@ -226,8 +253,18 @@ client_jinja_template="""<!doctype html>
                                 draw_active();
                             }
                             break;
+                        case 122: //z -> undo 
+                            //draw_boxes();
+                            if(deleted_captions.length>0){
+                                rectangles_ltrb.push(deleted_rectangles_ltrb.pop());
+                                captions.push(deleted_captions.pop());
+                                active_box=rectangles_ltrb.length-1;
+                                draw_boxes();
+                                draw_active();
+                            }
+                            break;                            
                         case 104: //h -> help
-                            alert("h -> help\\nn -> next box\\nd -> delete word\\nenter -> edit the caption");
+                            alert("h -> help\\nn -> select next box\\nd -> delete word\\nenter -> edit the caption");
                             break;
                         default:
                             alert("Unknown code:"+evt.keyCode);
@@ -247,11 +284,22 @@ client_jinja_template="""<!doctype html>
 <section>
     <div id="cover" style="{position: fixed; height: 100%; width: 100%; top:0; left: 0; background: #000; z-index:9999;}"></div>
     <div id="navigation">
-        <table>
-            <tr><td><a href="/{{previous_id}}">Previous<a></td><td><a href="/">Images<a></td><td><a href="/{{next_id}}">Next<a></td><td>Help</td></tr>
-        </table>
-        <img src="/{{id}}.jpg" alt="could not load" height="280" width="320">
-        <p>And now the canvas</p>
+            <H1>Navigation</H1>
+            <table>
+                <tr><td>
+                    <H1><a href="/{{previous_id}}">Previous</a></H1>
+                </td><td>
+                    <H1><a href="/">Images</a></H1>
+                </td><td>
+                    <H1><a href="/{{next_id}}">Next</a></H1>
+                </td><td>
+                    <H1>Object type:</H1>
+                </td><td>
+                    <div id="CaptionPrefix">W</div>
+                </td><td>
+                    <H1>Help</H1>
+                </td></tr>
+            </table>
     </div>
     <div id="canvasesdiv" style="position:relative; width:400px; height:300px">
         <canvas id="layer_image"
@@ -265,7 +313,7 @@ client_jinja_template="""<!doctype html>
         <canvas id="layer_boxes"
             style="z-index: 2;
             position:absolute;
-            left:0px;
+            l+eft:0px;
             top:0px;
             " height="300px" width="400">
             This text is displayed if your browser does not support HTML5 Canvas.
@@ -329,11 +377,11 @@ class StringGeneratorWebService(object):
                 cherrypy.response.headers['Content-Type'] = 'application/json'
                 try:
                     json_str=open(self.id2json_fnames[id_split[0]]).read()
-                    print "Returning real json:", self.json[id_split[0]];
+                    print "Returning real json:", json_str
                     return json_str
                 except  IOError: # for python3 FileNotFoundError:
                     print "Returning fake json."
-                    return json.dumps({"rectangles_ltrb":[[100,300,1000,600]],"captions":["Hello"]})
+                    return json.dumps({"rectangles_ltrb":[],"captions":[]})
             else:
                 print "file_type:",file_type
                 raise
