@@ -5,7 +5,7 @@ import string
 import cherrypy #also routes are needed
 import sys
 import glob
-import re
+import cv2
 import os
 import hashlib
 import jinja2
@@ -16,6 +16,7 @@ import jinja2
 # id: md5sum
 # previous_id: md5sum
 # next_id: md5sum
+
 client_jinja_template="""<!doctype html>
 <html>
 <head>
@@ -23,10 +24,147 @@ client_jinja_template="""<!doctype html>
 <title>Canvas Layers Test</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script>
+        var user_name="N/A";
         var rectangles_ltrb = [];
-
         var captions = [];
+        var deleted_rectangles_ltrb = [];
+        var deleted_captions = [];
         var active_box=-1;
+        
+        function update_caption_prefix(prefix_str){
+            var btn_textblock=document.getElementById("btn_textblock");
+            var btn_textline=document.getElementById("btn_textline");
+            var btn_word=document.getElementById("btn_word");
+            var btn_graphic=document.getElementById("btn_graphic");
+            var btn_custom=document.getElementById("btn_custom");
+            btn_textblock.style.color = "";
+            btn_textline.style.color = "";
+            btn_word.style.color = "";
+            btn_graphic.style.color = "";
+            btn_custom.style.color = "";
+            if(prefix_str==="B"){
+                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                btn_textblock.style.color = "#AAAAAA";
+            }else if(prefix_str==="L"){
+                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                btn_textline.style.color = "#AAAAAA";
+            }else if(prefix_str==="W"){
+                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                btn_word.style.color = "#AAAAAA";
+            }else if(prefix_str==="G"){
+                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                btn_graphic.style.color = "#AAAAAA";
+            }else if(prefix_str===""){
+                var previous_value=document.getElementById("caption_prefix").innerHTML;
+                alert("previous caption "+previous_value);
+                document.getElementById("caption_prefix").innerHTML=window.prompt("Custom Prefix: ",previous_value);
+                btn_custom.style.color = "#AAAAAA";
+            }else{
+                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                btn_custom.style.color = "#AAAAAA";
+            }
+        }
+    
+        function read_keys_actions(){
+            var key_actions=new Map([]);
+            var table = document.getElementById("keys_table");
+            for (var i = 1, row; row = table.rows[i]; i++) {
+                var key=table.rows[i].cells[0].innerHTML.trim();
+                var val=parseInt(table.rows[i].cells[1].innerHTML);
+                key_actions[key]=val;
+            }
+            return key_actions;
+        }
+        function update_keys_actions(m){        
+            var table = document.getElementById("keys_table");
+            table.innerHTML = "";
+            var hrow = table.insertRow();
+            var th1=document.createElement("th");th1.innerHTML="Action";
+            var th2=document.createElement("th");th2.innerHTML="ASCII Code";
+            var th3=document.createElement("th");th3.innerHTML="String";
+            hrow.appendChild(th1);hrow.appendChild(th2);hrow.appendChild(th3);
+            for(var key in m){
+                (function(){
+                var row=table.insertRow();
+                var cell_caption=row.insertCell();
+                var cell_code=row.insertCell();
+                var cell_string=row.insertCell();
+                var cell_button=row.insertCell();
+                cell_caption.innerHTML=key;
+                cell_code.innerHTML=m[key]+"";
+                cell_string.innerHTML=String.fromCharCode(m[key]);
+                var btn = document.createElement("BUTTON");
+                btn.appendChild(document.createTextNode(key));
+                cell_button.appendChild(btn);
+                btn.onclick=function(){
+                    var new_val=window.prompt("New Code for :"+cell_caption.innerHTML,cell_code.innerHTML);
+                    if(!isNaN(new_val) || new_val<13 || new_val>127){
+                        m[key]=new_val;
+                        cell_code.innerHTML=parseInt(new_val);
+                        cell_string.innerHTML=String.fromCharCode(m[key]);
+                    }else{
+                        alert("Code must be a valid ascii code");
+                    }
+                };
+                })();
+            }
+        }
+        function save_preferences(){
+            var d = new Date();
+            var exdays=1000;
+            d.setTime(d.getTime() + (exdays*24*60*60*1000));
+            var expires = "expires="+ d.toUTCString();
+            user_name=document.getElementById("user_name").innerHTML
+            var data_base64 = btoa(JSON.stringify([read_keys_actions(),user_name,document.getElementById("caption_prefix").innerHTML]));
+            document.cookie = "data_base64="+data_base64+";" + expires + ";path=/";
+        }
+        
+        function toggle_help(){
+            var help_div=document.getElementById("helpdiv");
+            var canvases_div=document.getElementById("canvases_div");
+            if(help_div.style.display === "none"){
+                help_div.style.display = "block";
+                canvases_div.style.display = "none";
+            }else{
+                help_div.style.display = "none";
+                canvases_div.style.display = "block";
+                key_actions=read_keys_actions();
+            }        
+        }
+        
+        function load_preferences(){
+            if(document.cookie.indexOf('data_base64=')){
+                alert("No Key in Cookie:"+ca);
+                user_name="N/A";
+                document.getElementById("user_name").innerHTML=user_name;
+                update_keys_actions(read_keys_actions());
+                update_caption_prefix(document.getElementById("caption_prefix").innerHTML);
+            }else{
+                //update_caption_prefix("W");
+                //update_keys_actions(read_keys_actions());
+                var decodedCookie = decodeURIComponent(document.cookie);
+                var ca = decodedCookie.split(';');
+                
+                for(var i = 0; i <ca.length; i++) {
+                    var c = ca[i];
+                    while (c.charAt(0) == ' ') {
+                        c = c.substring(1);
+                    }
+                    if (c.indexOf("data_base64=") == 0) {
+                        keys_user_type=JSON.parse(atob(c.substring("object_type=".length, c.length)));
+                        
+                        update_keys_actions(keys_user_type[0]);
+                        
+                        user_name=keys_user_type[1];
+                        document.getElementById("user_name").innerHTML=user_name;
+                        
+                        update_caption_prefix(keys_user_type[2]);
+                    }
+                }
+            }
+        }
+
+
         $(document).ready(function(){
             $.when($.ajax("/{{id}}.json")).then(function(data,textStatus,jqXHR){
                 alert("data"+data);
@@ -41,6 +179,7 @@ client_jinja_template="""<!doctype html>
                 draw_boxes();
             });
 
+            var caption_prefix=document.getElementById("caption_prefix").innerHTML;
             var img_id="{{id}}";
             var layer_image=$('#layer_image')[0];
             var layer_boxes=$('#layer_boxes')[0];
@@ -51,9 +190,7 @@ client_jinja_template="""<!doctype html>
             var ctx_active;
             var ctx_interactive;
             var img = new Image();
-
-
-
+            
             var begin_x=-1;
             var begin_y=-1;
 
@@ -84,14 +221,21 @@ client_jinja_template="""<!doctype html>
                 xhr.send(data);
             }
 
-
             function draw_boxes() {
                 if (rectangles_ltrb.length>0){
-                    ctx_boxes.fillStyle = "#0000FF";
-                    ctx_boxes.globalAlpha = 0.2;
                     ctx_boxes.clearRect(0, 0, img.width, img.height);
+                    ctx_boxes.globalAlpha = 0.2;
+                    ctx_boxes.fillStyle = "#FF0000";
                     for(var n=0;n<rectangles_ltrb.length;n++){
-                        ctx_boxes.fillRect(rectangles_ltrb[n][0], rectangles_ltrb[n][1], rectangles_ltrb[n][2]-rectangles_ltrb[n][0], rectangles_ltrb[n][3]-rectangles_ltrb[n][1]);
+                        if(!captions[n].startsWith("W@")){
+                            ctx_boxes.fillRect(rectangles_ltrb[n][0], rectangles_ltrb[n][1], rectangles_ltrb[n][2]-rectangles_ltrb[n][0], rectangles_ltrb[n][3]-rectangles_ltrb[n][1]);
+                        }
+                    }
+                    ctx_boxes.fillStyle = "#0000FF";
+                    for(var n=0;n<rectangles_ltrb.length;n++){
+                        if(captions[n].startsWith("W@")){
+                            ctx_boxes.fillRect(rectangles_ltrb[n][0], rectangles_ltrb[n][1], rectangles_ltrb[n][2]-rectangles_ltrb[n][0], rectangles_ltrb[n][3]-rectangles_ltrb[n][1]);
+                        }
                     }
                     ctx_boxes.globalAlpha = 1.0;
                     ctx_boxes.lineWidth="2";
@@ -100,7 +244,9 @@ client_jinja_template="""<!doctype html>
                     }
                     ctx_boxes.font = '18pt Calibri';
                     for(var n=0;n<rectangles_ltrb.length;n++){
-                        ctx_boxes.fillText(captions[n], rectangles_ltrb[n][0], rectangles_ltrb[n][1]);
+                        var caption_list=captions[n].split("@");
+                        caption_list.splice(0,1)
+                        ctx_boxes.fillText(caption_list.join("@"), rectangles_ltrb[n][0], rectangles_ltrb[n][1]);
                     }
                 }else{
                     ctx_boxes.clearRect(0, 0, img.width, img.height);
@@ -116,10 +262,18 @@ client_jinja_template="""<!doctype html>
                     ctx_active.strokeStyle="green";
                     ctx_active.rect(ltrb[0], ltrb[1], ltrb[2]-ltrb[0], ltrb[3]-ltrb[1]);
                     ctx_active.stroke();
+                    var loc_w=(document.documentElement.clientWidth+ltrb[2]+ltrb[0])/2;
+                    var loc_h=(document.documentElement.clientHeight+ltrb[3]+ltrb[1])/2;
                 }
             }
-
+            function scroll_to_active() {
+                var ltrb=rectangles_ltrb[active_box];
+                var move_to_x=((ltrb[2]+ltrb[0])-window.innerWidth)/2;
+                var move_to_y=((ltrb[3]+ltrb[1])-window.innerHeight)/2;
+                window.scrollTo(move_to_x,move_to_y);
+            }
             img.onload = function () {
+                load_preferences();
                 layer_image=$('#layer_image')[0]
                 layer_boxes=$('#layer_boxes')[0]
                 layer_active=$('#layer_active')[0]
@@ -180,7 +334,8 @@ client_jinja_template="""<!doctype html>
                     var b=Math.round(Math.max(mousePos.y,begin_y));
                     if((r-l)*(b-t)>25){
                         active_box=rectangles_ltrb.push([l,t,r,b])-1;
-                        captions.push("");
+                        //captions.push(caption_prefix);
+                        captions.push(caption_prefix+"@");
                         draw_boxes();
                         draw_active();
                         upload_rectangles_captions();
@@ -202,39 +357,89 @@ client_jinja_template="""<!doctype html>
                 }, false);
 
                 document.addEventListener("keypress", function(evt) {
-                    switch(evt.keyCode){
-                        case 13: //enter -> edit caption
+                    var key_actions=read_keys_actions();
+                    switch(parseInt(evt.keyCode)){
+                        case key_actions["Edit Selected"]: //enter -> edit caption
                             if(active_box>=0){
-                                captions[active_box]=window.prompt("sometext",captions[active_box]);
+                                var broken_caption=captions[active_box].split("@");
+                                var current_caption_prefix=broken_caption[0];
+                                broken_caption.splice(0,1);
+                                var current_caption=broken_caption.join("@");
+                                captions[active_box]=current_caption_prefix+"@"+window.prompt("Caption",current_caption);                            
                                 draw_boxes();
                             }else{
-                                alert()
+                                alert("No object selected");
                             }
                             break;
-                        case 110: //n -> next
+                        case key_actions["Edit Next"]: //e -> edit next caption
+                            if(active_box>=0){
+                                draw_boxes();
+                                active_box+=1;
+                                active_box=active_box%rectangles_ltrb.length;
+                                var broken_caption=captions[active_box].split("@");
+                                var current_caption_prefix=broken_caption[0];
+                                broken_caption.splice(0,1);
+                                var current_caption=broken_caption.join("@");
+                                captions[active_box]=current_caption_prefix+"@"+window.prompt("Caption",current_caption);
+                                draw_boxes();
+                            }else{
+                                alert("No object selected");
+                            }
+                            break;                        
+                        case  key_actions["Select Next"]: //n -> next
                             active_box+=1;
                             active_box=active_box%rectangles_ltrb.length;
                             draw_active();
+                            var ltrb=rectangles_ltrb[active_box];
+                            scroll_to_active();
                             break;
-                        case 100: //d -> delete
-                            draw_boxes();
+                        case  key_actions["Select Previous"]: //p -> previous
+                            active_box+=(rectangles_ltrb.length+1);
+                            active_box=active_box%rectangles_ltrb.length;
+                            draw_active();
+                            scroll_to_active();
+                            break;
+                        case  key_actions["Set Caption Type"]: // c -> edit caption prefix
+                            var caption_prefix=document.getElementByID("caption_prefix").innerHTML;
+                            caption_prefix=window.prompt("Object Type",caption_prefix);
+                            if(caption_prefix == "W" || caption_prefix == "G" || caption_prefix == "L" || caption_prefix == "B"|| caption_prefix == ""){
+                                update_caption_prefix(caption_prefix);                                
+                            }else{
+                                update_caption_prefix(caption_prefix);
+                            }
+                            break;
+                        case  key_actions["Delete Selected"]: //d -> delete
+                            //draw_boxes();
                             if(active_box>=0){
+                                deleted_rectangles_ltrb.push(rectangles_ltrb[active_box]);
+                                deleted_captions.push(captions[active_box]);
                                 rectangles_ltrb.splice(active_box,1);
                                 captions.splice(active_box,1);
                                 active_box=active_box%rectangles_ltrb.length;
                                 draw_boxes();
                                 draw_active();
+                                scroll_to_active();
                             }
                             break;
-                        case 104: //h -> help
-                            alert("h -> help\\nn -> next box\\nd -> delete word\\nenter -> edit the caption");
+                        case  key_actions["Undelete Selected"]: //z -> undo 
+                            //draw_boxes();
+                            if(deleted_captions.length>0){
+                                rectangles_ltrb.push(deleted_rectangles_ltrb.pop());
+                                captions.push(deleted_captions.pop());
+                                active_box=rectangles_ltrb.length-1;
+                                draw_boxes();
+                                draw_active();
+                                scroll_to_active();
+                            }
+                            break;                            
+                        case key_actions["Help"]: //h -> help
+                            toggle_help();
                             break;
                         default:
                             alert("Unknown code:"+evt.keyCode);
                     }
                 }, false);
             }
-            //img.src = "../tmp/Kroniky-zip-vyber/obrazky/soap-ch_00001_mesto-cheb-gradl-siegl-1878-1924-sig603/soap-ch_00001_mesto-cheb-gradl-siegl-1878-1924_0050.jpg";
             img.src = "/{{id}}.jpg";
             $(window).on('load', function() {
                 draw_boxes();
@@ -246,14 +451,56 @@ client_jinja_template="""<!doctype html>
 <body>
 <section>
     <div id="cover" style="{position: fixed; height: 100%; width: 100%; top:0; left: 0; background: #000; z-index:9999;}"></div>
-    <div id="navigation">
-        <table>
-            <tr><td><a href="/{{previous_id}}">Previous<a></td><td><a href="/">Images<a></td><td><a href="/{{next_id}}">Next<a></td><td>Help</td></tr>
+    <div id="navigation_div">
+        <table border=1>
+            <tr><td align="center" colspan="4">
+                <b>Navigation</b>
+            </td><td colspan="7"  align="center" >
+                    <b>Object Types</b>
+            </td></tr>
+            <tr><td>
+                <button id="btn_previous" onclick="save_preferences();window.location='/{{previous_id}}');">Previous</button>
+            </td><td>
+                <button id="btn_images" onclick="save_preferences();window.location='/';">Images</button>
+            </td><td>
+                <button id="btn_next" onclick="save_preferences();window.location='/{{next_id}}';">Next</button>
+            </td><td>
+                <button id="btn_help" onclick="toggle_help();save_preferences();">Help</button>
+            </td><td>
+                <button id="btn_textblock" onclick="update_caption_prefix('B');save_preferences();">Textblock</button>
+            </td><td>
+                <button id="btn_textline" onclick="update_caption_prefix('L');save_preferences();">Textline</button>
+            </td><td>
+                <button id="btn_word" onclick="update_caption_prefix('W');save_preferences();">Word</button>
+            </td><td>
+                <button id="btn_graphic" onclick="update_caption_prefix('G');save_preferences();">Graphic</button>
+            </td><td>
+                <button id="btn_custom" onclick="update_caption_prefix('');save_preferences();">Custom</button>
+            </td><td>
+                Current type:                
+            </td><td align="center">
+                    <div id="caption_prefix">G</div>    
+            </td></tr>
         </table>
-        <img src="/{{id}}.jpg" alt="could not load" height="280" width="320">
-        <p>And now the canvas</p>
     </div>
-    <div id="canvasesdiv" style="position:relative; width:400px; height:300px">
+    <div id="helpdiv">
+        <H3>Text groundtruther</H3>
+        <table><tr><td>User:</td><td><div id="user_name">N/A</div></td><td>
+            <button onclick="user_name=window.prompt('Username',user_name);document.getElementById('user_name').innerHTML=user_name;">Edit</button>
+        </td></tr><table>
+        <table id="keys_table">
+            <tr><th>Action</th><th>Shortcut Symbol</th><th>Shortcut Code</th></tr>
+            <tr><td> Edit Selected     </td><td>  13 </td><td>   </td></tr>
+            <tr><td> Edit Next         </td><td> 101 </td><td> e </td></tr>
+            <tr><td> Select Next       </td><td> 110 </td><td> n </td></tr>
+            <tr><td> Select Previous   </td><td> 112 </td><td> p </td></tr>
+            <tr><td> Delete Selected   </td><td> 100 </td><td> d </td></tr>
+            <tr><td> Undelete Selected </td><td> 122 </td><td> z </td></tr>
+            <tr><td> Set Caption Type  </td><td> 099 </td><td> c </td></tr>
+            <tr><td> Help              </td><td> 104 </td><td> h </td></tr>
+        </table>
+    </div>
+    <div id="canvases_div" style="position:relative; width:400px; height:300px">
         <canvas id="layer_image"
             style="z-index: 1;
             position:absolute;
@@ -265,7 +512,7 @@ client_jinja_template="""<!doctype html>
         <canvas id="layer_boxes"
             style="z-index: 2;
             position:absolute;
-            left:0px;
+            l+eft:0px;
             top:0px;
             " height="300px" width="400">
             This text is displayed if your browser does not support HTML5 Canvas.
@@ -292,6 +539,14 @@ client_jinja_template="""<!doctype html>
 </html>
 """
 
+
+def load_thumbd(fname,width=100):
+    img=cv2.imread(fname,cv2.IMREAD_COLOR)
+    hw=img.shape[1]/float(img.shape[0]);
+    thumb=cv2.resize(img,(int(width),int(width*hw)),interpolation = cv2.INTER_AREA)
+    encoded=cv2.imencode(".jpg", thumb)[1].reshape(-1)
+    return str(encoded.data)
+
 @cherrypy.expose
 class StringGeneratorWebService(object):
     def __init__(self,image_list,annotator_template):
@@ -302,6 +557,7 @@ class StringGeneratorWebService(object):
         self.next_id={self.ids[k-1]:self.ids[k] for k in range(1,len(self.ids))}
         self.next_id[self.ids[-1]]=""
         self.id2image_fnames=dict(id_paths)
+        self.id2thumbs={id:load_thumbd(fname) for id,fname in self.id2image_fnames.items()}
         self.id2json_fnames={k:v[:v.rfind(".")]+".json" for k,v in self.id2image_fnames.items()}
         #self.json_list=[p[:p.rfind(".")]+".json" for p in image_list]
         self.annotator=jinja2.Template(annotator_template)
@@ -313,29 +569,36 @@ class StringGeneratorWebService(object):
             cherrypy.response.headers['Content-Type'] = 'text/html'
             head="<html><body><table><tr><td>"
             tail="</td></tr></html></body></html>"
-            body="</td></tr>\n<tr><td>".join(['{}</td><td><a href="{}">{}</a>'.format(k,v,v) for k,v in enumerate(self.ids)])
+            body="</td></tr>\n<tr><td>".join(['{}</td><td><a href="{}"><img src="{}.thumb.jpg"/></a>'.format(k,v,v) for k,v in enumerate(self.ids)])
             return head+body+tail
         else:
+            print "id:",id
             id_split=id.split(".")
-            file_type=id_split[0]
-            if len(id_split)==1:
+            if id == "favicon.ico":
+                cherrypy.response.headers['Content-Type'] = "image/gif"
+                return atob("R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAO")
+            elif len(id_split)==1:
                 cherrypy.response.headers['Content-Type'] = 'text/html'
                 id=id_split[0]
-                return self.annotator.render(id=id,prev_id=self.previous_id[id],next_id=self.next_id[id])
-            elif id_split[1]=="jpg":
-                cherrypy.response.headers['Content-Type'] = "image/jpg"
-                return open(self.id2image_fnames[id_split[0]]).read()
+                return self.annotator.render(id=id,previous_id=self.previous_id[id],next_id=self.next_id[id])
+            elif id_split[-1]=="jpg":
+                if id_split[-2]=="thumb":
+                    cherrypy.response.headers['Content-Type'] = "image/jpg"
+                    return self.id2thumbs[id_split[0]]
+                else:
+                    cherrypy.response.headers['Content-Type'] = "image/jpg"
+                    return open(self.id2image_fnames[id_split[0]]).read()
             elif id_split[1]=="json":
                 cherrypy.response.headers['Content-Type'] = 'application/json'
                 try:
                     json_str=open(self.id2json_fnames[id_split[0]]).read()
-                    print "Returning real json:", self.json[id_split[0]];
+                    print "Returning real json:", json_str
                     return json_str
                 except  IOError: # for python3 FileNotFoundError:
                     print "Returning fake json."
-                    return json.dumps({"rectangles_ltrb":[[100,300,1000,600]],"captions":["Hello"]})
+                    return json.dumps({"rectangles_ltrb":[],"captions":[]})
             else:
-                print "file_type:",file_type
+                print "id:",id
                 raise
 
     def POST(self, length=8):
