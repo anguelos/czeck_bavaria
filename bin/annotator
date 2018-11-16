@@ -16,6 +16,7 @@ import jinja2
 # id: md5sum
 # previous_id: md5sum
 # next_id: md5sum
+
 client_jinja_template="""<!doctype html>
 <html>
 <head>
@@ -23,10 +24,14 @@ client_jinja_template="""<!doctype html>
 <title>Canvas Layers Test</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
     <script>
+        var user_name="N/A";
+        var rectangles_ltrb = [];
+        var captions = [];
+        var deleted_rectangles_ltrb = [];
+        var deleted_captions = [];
+        var active_box=-1;
+        
         function update_caption_prefix(prefix_str){
-            //if(prefix_str===""){
-            //    prefix_str=document.getElementById("caption_prefix").innerHTML;
-            //}
             var btn_textblock=document.getElementById("btn_textblock");
             var btn_textline=document.getElementById("btn_textline");
             var btn_word=document.getElementById("btn_word");
@@ -55,17 +60,10 @@ client_jinja_template="""<!doctype html>
                 document.getElementById("caption_prefix").innerHTML=window.prompt("Custom Prefix: ",previous_value);
                 btn_custom.style.color = "#AAAAAA";
             }else{
-                alert("Unkonwn prefix: "+prefix_str);
+                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                btn_custom.style.color = "#AAAAAA";
             }
         }
-        var key_actions = new Map([["Edit Selected",13], // enter
-                                   ["Edit Next",101], // e
-                                   ["Select Next",110], // n
-                                   ["Select Previous",112], // p
-                                   ["Delete Selected",100], // d
-                                   ["Undelete Selected", 122], // z
-                                   ["Set Caption Type", 99], // c
-                                   ["Help", 104] ]); //h
     
         function read_keys_actions(){
             var key_actions=new Map([]);
@@ -77,11 +75,9 @@ client_jinja_template="""<!doctype html>
             }
             return key_actions;
         }
-        function init_keys(){
+        function update_keys_actions(m){        
             var table = document.getElementById("keys_table");
-            var m=read_keys_actions();
             table.innerHTML = "";
-            alert("MAP:"+JSON.stringify(m));
             var hrow = table.insertRow();
             var th1=document.createElement("th");th1.innerHTML="Action";
             var th2=document.createElement("th");th2.innerHTML="ASCII Code";
@@ -98,26 +94,77 @@ client_jinja_template="""<!doctype html>
                 cell_code.innerHTML=m[key]+"";
                 cell_string.innerHTML=String.fromCharCode(m[key]);
                 var btn = document.createElement("BUTTON");
-                btn.appendChild(document.createTextNode("Edit Code"+key));
+                btn.appendChild(document.createTextNode(key));
                 cell_button.appendChild(btn);
                 btn.onclick=function(){
                     var new_val=window.prompt("New Code for :"+cell_caption.innerHTML,cell_code.innerHTML);
                     if(!isNaN(new_val) || new_val<13 || new_val>127){
                         m[key]=new_val;
-                        cell_code.innerHTML=parseInt(new_val);							cell_string.innerHTML=String.fromCharCode(m[key]);
+                        cell_code.innerHTML=parseInt(new_val);
+                        cell_string.innerHTML=String.fromCharCode(m[key]);
                     }else{
                         alert("Code must be a valid ascii code");
                     }
                 };
                 })();
             }
-            alert("keys initialised");
         }
-        var rectangles_ltrb = [];
-        var captions = [];
-        var deleted_rectangles_ltrb = [];
-        var deleted_captions = [];
-        var active_box=-1;
+        function save_preferences(){
+            var d = new Date();
+            var exdays=1000;
+            d.setTime(d.getTime() + (exdays*24*60*60*1000));
+            var expires = "expires="+ d.toUTCString();
+            user_name=document.getElementById("user_name").innerHTML
+            var data_base64 = btoa(JSON.stringify([read_keys_actions(),user_name,document.getElementById("caption_prefix").innerHTML]));
+            document.cookie = "data_base64="+data_base64+";" + expires + ";path=/";
+        }
+        
+        function toggle_help(){
+            var help_div=document.getElementById("helpdiv");
+            var canvases_div=document.getElementById("canvases_div");
+            if(help_div.style.display === "none"){
+                help_div.style.display = "block";
+                canvases_div.style.display = "none";
+            }else{
+                help_div.style.display = "none";
+                canvases_div.style.display = "block";
+                key_actions=read_keys_actions();
+            }        
+        }
+        
+        function load_preferences(){
+            if(document.cookie.indexOf('data_base64=')){
+                alert("No Key in Cookie:"+ca);
+                user_name="N/A";
+                document.getElementById("user_name").innerHTML=user_name;
+                update_keys_actions(read_keys_actions());
+                update_caption_prefix(document.getElementById("caption_prefix").innerHTML);
+            }else{
+                //update_caption_prefix("W");
+                //update_keys_actions(read_keys_actions());
+                var decodedCookie = decodeURIComponent(document.cookie);
+                var ca = decodedCookie.split(';');
+                
+                for(var i = 0; i <ca.length; i++) {
+                    var c = ca[i];
+                    while (c.charAt(0) == ' ') {
+                        c = c.substring(1);
+                    }
+                    if (c.indexOf("data_base64=") == 0) {
+                        keys_user_type=JSON.parse(atob(c.substring("object_type=".length, c.length)));
+                        
+                        update_keys_actions(keys_user_type[0]);
+                        
+                        user_name=keys_user_type[1];
+                        document.getElementById("user_name").innerHTML=user_name;
+                        
+                        update_caption_prefix(keys_user_type[2]);
+                    }
+                }
+            }
+        }
+
+
         $(document).ready(function(){
             $.when($.ajax("/{{id}}.json")).then(function(data,textStatus,jqXHR){
                 alert("data"+data);
@@ -215,13 +262,18 @@ client_jinja_template="""<!doctype html>
                     ctx_active.strokeStyle="green";
                     ctx_active.rect(ltrb[0], ltrb[1], ltrb[2]-ltrb[0], ltrb[3]-ltrb[1]);
                     ctx_active.stroke();
-                    alert(screen.width+":"+screen.height);
-                    window.scrollTo((ltrb[2]+ltrb[0]+screen.width)/2,(ltrb[2]+ltrb[1]+screen.height)/2);
+                    var loc_w=(document.documentElement.clientWidth+ltrb[2]+ltrb[0])/2;
+                    var loc_h=(document.documentElement.clientHeight+ltrb[3]+ltrb[1])/2;
                 }
             }
-
+            function scroll_to_active() {
+                var ltrb=rectangles_ltrb[active_box];
+                var move_to_x=((ltrb[2]+ltrb[0])-window.innerWidth)/2;
+                var move_to_y=((ltrb[3]+ltrb[1])-window.innerHeight)/2;
+                window.scrollTo(move_to_x,move_to_y);
+            }
             img.onload = function () {
-                init_keys();
+                load_preferences();
                 layer_image=$('#layer_image')[0]
                 layer_boxes=$('#layer_boxes')[0]
                 layer_active=$('#layer_active')[0]
@@ -338,11 +390,14 @@ client_jinja_template="""<!doctype html>
                             active_box+=1;
                             active_box=active_box%rectangles_ltrb.length;
                             draw_active();
+                            var ltrb=rectangles_ltrb[active_box];
+                            scroll_to_active();
                             break;
                         case  key_actions["Select Previous"]: //p -> previous
                             active_box+=(rectangles_ltrb.length+1);
                             active_box=active_box%rectangles_ltrb.length;
                             draw_active();
+                            scroll_to_active();
                             break;
                         case  key_actions["Set Caption Type"]: // c -> edit caption prefix
                             var caption_prefix=document.getElementByID("caption_prefix").innerHTML;
@@ -363,6 +418,7 @@ client_jinja_template="""<!doctype html>
                                 active_box=active_box%rectangles_ltrb.length;
                                 draw_boxes();
                                 draw_active();
+                                scroll_to_active();
                             }
                             break;
                         case  key_actions["Undelete Selected"]: //z -> undo 
@@ -373,29 +429,17 @@ client_jinja_template="""<!doctype html>
                                 active_box=rectangles_ltrb.length-1;
                                 draw_boxes();
                                 draw_active();
+                                scroll_to_active();
                             }
                             break;                            
-                        case 104: //h -> help
-                            var help_div=document.getElementById("helpdiv");
-                            var canvases_div=document.getElementById("canvases_div");
-                            if(help_div.style.display === "none"){
-                                alert("reveal");
-                                help_div.style.display = "block";
-                                canvases_div.style.display = "none";
-                            }else{
-                                alert("hide");
-                                help_div.style.display = "none";
-                                canvases_div.style.display = "block";
-                                key_actions=read_keys_actions();
-                            }
-                            alert("h -> help\\nn -> select next box\\nd -> delete word\\nenter -> edit the caption");
+                        case key_actions["Help"]: //h -> help
+                            toggle_help();
                             break;
                         default:
                             alert("Unknown code:"+evt.keyCode);
                     }
                 }, false);
             }
-            //img.src = "../tmp/Kroniky-zip-vyber/obrazky/soap-ch_00001_mesto-cheb-gradl-siegl-1878-1924-sig603/soap-ch_00001_mesto-cheb-gradl-siegl-1878-1924_0050.jpg";
             img.src = "/{{id}}.jpg";
             $(window).on('load', function() {
                 draw_boxes();
@@ -408,47 +452,55 @@ client_jinja_template="""<!doctype html>
 <section>
     <div id="cover" style="{position: fixed; height: 100%; width: 100%; top:0; left: 0; background: #000; z-index:9999;}"></div>
     <div id="navigation_div">
-            <H1>Navigation</H1>
-            <table>
-                <tr><td>
-                    <button id="btn_previous">Previous</button>
-                </td><td>
-                    <button id="btn_images">Images</button>
-                </td><td>
-                    <button id="btn_next">Next</button>
-                </td><td>
-                    <button id="btn_textblock" onclick="update_caption_prefix('B')">Textblock</button>
-                </td><td>
-                    <button id="btn_textline" onclick="update_caption_prefix('L')">Textline</button>
-                </td><td>
-                    <button id="btn_word" onclick="update_caption_prefix('W')">Word</button>
-                </td><td>
-                    <button id="btn_graphic" onclick="update_caption_prefix('G')">Graphic</button>
-                </td><td>
-                    <button id="btn_custom" onclick="update_caption_prefix('')">Custom</button>
-                </td><td style="display:none">
-                    <div id="caption_prefix">
-                     G
-                    </div>
-                </td><td>
-                    <button id="btn_help">Help</button>
-                </td></tr>
-            </table>
+        <table border=1>
+            <tr><td align="center" colspan="4">
+                <b>Navigation</b>
+            </td><td colspan="7"  align="center" >
+                    <b>Object Types</b>
+            </td></tr>
+            <tr><td>
+                <button id="btn_previous" onclick="save_preferences();window.location='/{{previous_id}}');">Previous</button>
+            </td><td>
+                <button id="btn_images" onclick="save_preferences();window.location='/';">Images</button>
+            </td><td>
+                <button id="btn_next" onclick="save_preferences();window.location='/{{next_id}}';">Next</button>
+            </td><td>
+                <button id="btn_help" onclick="toggle_help();save_preferences();">Help</button>
+            </td><td>
+                <button id="btn_textblock" onclick="update_caption_prefix('B');save_preferences();">Textblock</button>
+            </td><td>
+                <button id="btn_textline" onclick="update_caption_prefix('L');save_preferences();">Textline</button>
+            </td><td>
+                <button id="btn_word" onclick="update_caption_prefix('W');save_preferences();">Word</button>
+            </td><td>
+                <button id="btn_graphic" onclick="update_caption_prefix('G');save_preferences();">Graphic</button>
+            </td><td>
+                <button id="btn_custom" onclick="update_caption_prefix('');save_preferences();">Custom</button>
+            </td><td>
+                Current type:                
+            </td><td align="center">
+                    <div id="caption_prefix">G</div>    
+            </td></tr>
+        </table>
     </div>
     <div id="helpdiv">
+        <H3>Text groundtruther</H3>
+        <table><tr><td>User:</td><td><div id="user_name">N/A</div></td><td>
+            <button onclick="user_name=window.prompt('Username',user_name);document.getElementById('user_name').innerHTML=user_name;">Edit</button>
+        </td></tr><table>
         <table id="keys_table">
             <tr><th>Action</th><th>Shortcut Symbol</th><th>Shortcut Code</th></tr>
             <tr><td> Edit Selected     </td><td>  13 </td><td>   </td></tr>
             <tr><td> Edit Next         </td><td> 101 </td><td> e </td></tr>
             <tr><td> Select Next       </td><td> 110 </td><td> n </td></tr>
-            <tr><td> Select Previous   </td><td> 110 </td><td> p </td></tr>
+            <tr><td> Select Previous   </td><td> 112 </td><td> p </td></tr>
             <tr><td> Delete Selected   </td><td> 100 </td><td> d </td></tr>
             <tr><td> Undelete Selected </td><td> 122 </td><td> z </td></tr>
             <tr><td> Set Caption Type  </td><td> 099 </td><td> c </td></tr>
             <tr><td> Help              </td><td> 104 </td><td> h </td></tr>
         </table>
     </div>
-    <div id="canvasesdiv" style="position:relative; width:400px; height:300px">
+    <div id="canvases_div" style="position:relative; width:400px; height:300px">
         <canvas id="layer_image"
             style="z-index: 1;
             position:absolute;
@@ -495,7 +547,6 @@ def load_thumbd(fname,width=100):
     encoded=cv2.imencode(".jpg", thumb)[1].reshape(-1)
     return str(encoded.data)
 
-
 @cherrypy.expose
 class StringGeneratorWebService(object):
     def __init__(self,image_list,annotator_template):
@@ -521,11 +572,15 @@ class StringGeneratorWebService(object):
             body="</td></tr>\n<tr><td>".join(['{}</td><td><a href="{}"><img src="{}.thumb.jpg"/></a>'.format(k,v,v) for k,v in enumerate(self.ids)])
             return head+body+tail
         else:
+            print "id:",id
             id_split=id.split(".")
-            if len(id_split)==1:
+            if id == "favicon.ico":
+                cherrypy.response.headers['Content-Type'] = "image/gif"
+                return atob("R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAO")
+            elif len(id_split)==1:
                 cherrypy.response.headers['Content-Type'] = 'text/html'
                 id=id_split[0]
-                return self.annotator.render(id=id,prev_id=self.previous_id[id],next_id=self.next_id[id])
+                return self.annotator.render(id=id,previous_id=self.previous_id[id],next_id=self.next_id[id])
             elif id_split[-1]=="jpg":
                 if id_split[-2]=="thumb":
                     cherrypy.response.headers['Content-Type'] = "image/jpg"
