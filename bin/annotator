@@ -9,8 +9,7 @@ import cv2
 import os
 import hashlib
 import jinja2
-
-
+import tqdm
 
 # Template parameters
 # id: md5sum
@@ -31,7 +30,73 @@ client_jinja_template="""<!doctype html>
         var deleted_captions = [];
         var active_box=-1;
         
-        function update_caption_prefix(prefix_str){
+        function set_colors(element,value){
+            if(element === undefined && value === undefined){
+                document.getElementById("w_prefix_color_empty").innerHTML="#FF0000";
+                document.getElementById("w_prefix_color_full").innerHTML="#00FF00";
+                document.getElementById("l_prefix_color_empty").innerHTML="#FF00FF";
+                document.getElementById("l_prefix_color_full").innerHTML="#00FF00";
+                document.getElementById("g_prefix_color_empty").innerHTML="#0000FF";
+                document.getElementById("g_prefix_color_full").innerHTML="#0000FF";
+                document.getElementById("other_prefix_color_empty").innerHTML="#0000FF";
+                document.getElementById("other_prefix_color_full").innerHTML="#0000FF";
+                document.getElementById("transcription_font_color").innerHTML="#888888";
+                document.getElementById("transcription_font_type").innerHTML="Calibri";
+                document.getElementById("transcription_font_size").innerHTML="18pt";
+            }else if(element.constructor === String && value === undefined){
+                var reply=window.prompt(element.split("_").join(" "),document.getElementById(element).innerHTML.trim());
+                if(element=="transcription_font_type"){
+                    if(reply.length>0){
+                        document.getElementById(element).innerHTML=reply;
+                    }else{
+                        alert("Font must be a non-empty striong");
+                    }
+                }else if(element=="transcription_font_size"){
+                    if(reply.match(/^[0-9a-f][0-9a-f]pt/i)){
+                        document.getElementById(element).innerHTML=reply;
+                    }else{
+                        alert("Expecting font size of the format 18pt got "+reply);
+                    }                
+                }else{
+                    if(reply.match(/^#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/i)){
+                        document.getElementById(element).innerHTML=reply;
+                    }else{
+                        alert("Expecting Color of the format #AA00FF got "+reply);
+                    }
+                }
+            }else if(w_prefix_color_empty in element && w_prefix_color_full in element && l_prefix_color_empty in element ){ //TODO (anguelos) improve the check;
+                document.getElementById("w_prefix_color_empty").innerHTML=element["w_prefix_color_empty"];
+                document.getElementById("w_prefix_color_full").innerHTML=element["w_prefix_color_full"];
+                document.getElementById("l_prefix_color_empty").innerHTML=element["l_prefix_color_empty"];
+                document.getElementById("l_prefix_color_full").innerHTML=element["l_prefix_color_full"];
+                document.getElementById("g_prefix_color_empty").innerHTML=element["g_prefix_color_empty"];
+                document.getElementById("g_prefix_color_full").innerHTML=element["g_prefix_color_full"];
+                document.getElementById("other_prefix_color_empty").innerHTML=element["other_prefix_color_empty"];
+                document.getElementById("other_prefix_color_full").innerHTML=element["other_prefix_color_full"];
+                document.getElementById("transcription_font_color").innerHTML=element["transcription_font_color"];
+                document.getElementById("transcription_font_type").innerHTML=element["transcription_font_type"];
+                document.getElementById("transcription_font_size").innerHTML=element["transcription_font_size"];
+            }else {
+                document.getElementById(element).innerHTML=value;
+            }
+        }
+        function get_colors(){
+            var element={};
+            element["w_prefix_color_empty"]=document.getElementById("w_prefix_color_empty").innerHTML;
+            element["w_prefix_color_full"]=document.getElementById("w_prefix_color_full").innerHTML;
+            element["l_prefix_color_empty"]=document.getElementById("l_prefix_color_empty").innerHTML;
+            element["l_prefix_color_full"]=document.getElementById("l_prefix_color_full").innerHTML;
+            element["g_prefix_color_empty"]=document.getElementById("g_prefix_color_empty").innerHTML;
+            element["g_prefix_color_full"]=document.getElementById("g_prefix_color_full").innerHTML;
+            element["other_prefix_color_empty"]=document.getElementById("other_prefix_color_empty").innerHTML;
+            element["other_prefix_color_full"]=document.getElementById("other_prefix_color_full").innerHTML;
+            element["transcription_font_color"]=document.getElementById("transcription_font_color").innerHTML;
+            element["transcription_font_type"]=document.getElementById("transcription_font_type").innerHTML;
+            element["transcription_font_size"]=document.getElementById("transcription_font_size").innerHTML;
+            return element;                
+        }
+        
+        function update_new_caption_prefix(prefix_str){
             var btn_textblock=document.getElementById("btn_textblock");
             var btn_textline=document.getElementById("btn_textline");
             var btn_word=document.getElementById("btn_word");
@@ -43,24 +108,24 @@ client_jinja_template="""<!doctype html>
             btn_graphic.style.color = "";
             btn_custom.style.color = "";
             if(prefix_str==="B"){
-                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                document.getElementById("new_caption_prefix").innerHTML=prefix_str;
                 btn_textblock.style.color = "#AAAAAA";
             }else if(prefix_str==="L"){
-                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                document.getElementById("new_caption_prefix").innerHTML=prefix_str;
                 btn_textline.style.color = "#AAAAAA";
             }else if(prefix_str==="W"){
-                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                document.getElementById("new_caption_prefix").innerHTML=prefix_str;
                 btn_word.style.color = "#AAAAAA";
             }else if(prefix_str==="G"){
-                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                document.getElementById("new_caption_prefix").innerHTML=prefix_str;
                 btn_graphic.style.color = "#AAAAAA";
             }else if(prefix_str===""){
-                var previous_value=document.getElementById("caption_prefix").innerHTML;
+                var previous_value=document.getElementById("new_caption_prefix").innerHTML;
                 alert("previous caption "+previous_value);
-                document.getElementById("caption_prefix").innerHTML=window.prompt("Custom Prefix: ",previous_value);
+                document.getElementById("new_caption_prefix").innerHTML=window.prompt("Custom Prefix: ",previous_value);
                 btn_custom.style.color = "#AAAAAA";
             }else{
-                document.getElementById("caption_prefix").innerHTML=prefix_str;
+                document.getElementById("new_caption_prefix").innerHTML=prefix_str;
                 btn_custom.style.color = "#AAAAAA";
             }
         }
@@ -75,6 +140,7 @@ client_jinja_template="""<!doctype html>
             }
             return key_actions;
         }
+
         function update_keys_actions(m){        
             var table = document.getElementById("keys_table");
             table.innerHTML = "";
@@ -109,24 +175,25 @@ client_jinja_template="""<!doctype html>
                 })();
             }
         }
+
         function save_preferences(){
             var d = new Date();
             var exdays=1000;
             d.setTime(d.getTime() + (exdays*24*60*60*1000));
             var expires = "expires="+ d.toUTCString();
             user_name=document.getElementById("user_name").innerHTML
-            var data_base64 = btoa(JSON.stringify([read_keys_actions(),user_name,document.getElementById("caption_prefix").innerHTML]));
+            var data_base64 = btoa(JSON.stringify([read_keys_actions(),user_name,document.getElementById("new_caption_prefix").innerHTML],get_colors()));
             document.cookie = "data_base64="+data_base64+";" + expires + ";path=/";
         }
         
-        function toggle_help(){
-            var help_div=document.getElementById("helpdiv");
+        function toggle_settings(){
+            var settings_div=document.getElementById("settingsdiv");
             var canvases_div=document.getElementById("canvases_div");
-            if(help_div.style.display === "none"){
-                help_div.style.display = "block";
+            if(settings_div.style.display === "none"){
+                settings_div.style.display = "block";
                 canvases_div.style.display = "none";
             }else{
-                help_div.style.display = "none";
+                settings_div.style.display = "none";
                 canvases_div.style.display = "block";
                 key_actions=read_keys_actions();
             }        
@@ -138,9 +205,8 @@ client_jinja_template="""<!doctype html>
                 user_name="N/A";
                 document.getElementById("user_name").innerHTML=user_name;
                 update_keys_actions(read_keys_actions());
-                update_caption_prefix(document.getElementById("caption_prefix").innerHTML);
+                update_new_caption_prefix(document.getElementById("new_caption_prefix").innerHTML);
             }else{
-                //update_caption_prefix("W");
                 //update_keys_actions(read_keys_actions());
                 var decodedCookie = decodeURIComponent(document.cookie);
                 var ca = decodedCookie.split(';');
@@ -151,26 +217,24 @@ client_jinja_template="""<!doctype html>
                         c = c.substring(1);
                     }
                     if (c.indexOf("data_base64=") == 0) {
-                        keys_user_type=JSON.parse(atob(c.substring("object_type=".length, c.length)));
+                        keys_user_type_colors=JSON.parse(atob(c.substring("object_type=".length, c.length)));
                         
-                        update_keys_actions(keys_user_type[0]);
+                        update_keys_actions(keys_user_type_colors[0]);
                         
-                        user_name=keys_user_type[1];
+                        user_name=keys_user_type_colors[1];
                         document.getElementById("user_name").innerHTML=user_name;
                         
-                        update_caption_prefix(keys_user_type[2]);
+                        update_new_caption_prefix(keys_user_type_colors[2]);
+                        
+                        set_colors(keys_user_type_colors[3]);
                     }
                 }
             }
         }
 
-
         $(document).ready(function(){
             $.when($.ajax("/{{id}}.json")).then(function(data,textStatus,jqXHR){
-                alert("data"+data);
                 console.log(data);
-                //var initial_data=JSON.parse(data);
-
                 rectangles_ltrb=data[0];
                 rectangles_ltrb=data.rectangles_ltrb;
                 captions=data[1];
@@ -179,7 +243,7 @@ client_jinja_template="""<!doctype html>
                 draw_boxes();
             });
 
-            var caption_prefix=document.getElementById("caption_prefix").innerHTML;
+            var new_caption_prefix=document.getElementById("new_caption_prefix").innerHTML;
             var img_id="{{id}}";
             var layer_image=$('#layer_image')[0];
             var layer_boxes=$('#layer_boxes')[0];
@@ -217,32 +281,89 @@ client_jinja_template="""<!doctype html>
                 xhr.open("PUT", url, true);
                 xhr.setRequestHeader('Content-type','application/json; charset=utf-8');
                 //xhr.onreadystatechange = function () {}; # Was here from POST example
-                var data = JSON.stringify({"rectangles_ltrb":rectangles_ltrb,"captions":captions});
+                var data = JSON.stringify({"rectangles_ltrb":rectangles_ltrb,"captions":captions,"user":document.getElementById('user_name').innerHTML});
                 xhr.send(data);
             }
 
             function draw_boxes() {
                 if (rectangles_ltrb.length>0){
+                    //"w_prefix_color_empty","w_prefix_color_full","l_prefix_color_empty","l_prefix_color_full","g_prefix_color_empty","g_prefix_color_full","other_prefix_color_empty","other_prefix_color_full",transcription_font_color
+                    
+                    var other_prefix_color_full=document.getElementById("other_prefix_color_full").innerHTML.trim();
+                    var other_prefix_color_empty=document.getElementById("other_prefix_color_empty").innerHTML.trim();
+
+                    var w_prefix_color_empty=document.getElementById("w_prefix_color_empty").innerHTML.trim();
+                    var w_prefix_color_full=document.getElementById("w_prefix_color_full").innerHTML.trim();
+
+                    var l_prefix_color_empty=document.getElementById("l_prefix_color_empty").innerHTML.trim();
+                    var l_prefix_color_full=document.getElementById("l_prefix_color_full").innerHTML.trim();
+
+                    var g_prefix_color_empty=document.getElementById("g_prefix_color_empty").innerHTML.trim();
+                    var g_prefix_color_full=document.getElementById("g_prefix_color_full").innerHTML.trim();
+                    
+                    var transcription_font_color=document.getElementById("transcription_font_color").innerHTML.trim();
+                    
+                    var color_mapping={};
+                    color_mapping[other_prefix_color_full]=[];
+                    color_mapping[other_prefix_color_empty]=[];
+                    
+                    color_mapping[w_prefix_color_empty]=[];
+                    color_mapping[w_prefix_color_full]=[];
+                    
+                    color_mapping[l_prefix_color_empty]=[];
+                    color_mapping[l_prefix_color_full]=[];
+                    
+                    color_mapping[g_prefix_color_empty]=[];
+                    color_mapping[g_prefix_color_full]=[];
+                    
+                    for(var k=0;k<captions.length;k++){
+                        var [prefix, postfix]=captions[k].split("@").slice(0, 2);
+                        if(prefix=="W"){
+                            if(postfix==""){
+                                color_mapping[w_prefix_color_empty].push(k);
+                            }else{
+                                color_mapping[w_prefix_color_full].push(k);
+                            }
+                        } else if(prefix=="G"){
+                            if(postfix==""){
+                                color_mapping[g_prefix_color_empty].push(k);
+                            }else{
+                                color_mapping[g_prefix_color_full].push(k);
+                            }
+                        } else if(prefix=="L"){
+                            if(postfix==""){
+                                color_mapping[l_prefix_color_empty].push(k);
+                            }else{
+                                color_mapping[l_prefix_color_full].push(k);
+                            }
+                        } else {
+                            if(postfix==""){
+                                color_mapping[other_prefix_color_empty].push(k);
+                            }else{
+                                color_mapping[other_prefix_color_full].push(k);
+                            }
+                        }
+                    }
+
                     ctx_boxes.clearRect(0, 0, img.width, img.height);
                     ctx_boxes.globalAlpha = 0.2;
-                    ctx_boxes.fillStyle = "#FF0000";
-                    for(var n=0;n<rectangles_ltrb.length;n++){
-                        if(!captions[n].startsWith("W@")){
-                            ctx_boxes.fillRect(rectangles_ltrb[n][0], rectangles_ltrb[n][1], rectangles_ltrb[n][2]-rectangles_ltrb[n][0], rectangles_ltrb[n][3]-rectangles_ltrb[n][1]);
-                        }
+                    
+                    for(var color in color_mapping){
+                       ctx_boxes.fillStyle = color;
+                       var rect_ids=color_mapping[color];
+                       for(var n=0;n<rect_ids.length;n++){
+                            var ltrb=rectangles_ltrb[rect_ids[n]];
+                            ctx_boxes.fillRect(ltrb[0], ltrb[1], ltrb[2]-ltrb[0], ltrb[3]-ltrb[1]);
+                       }
                     }
-                    ctx_boxes.fillStyle = "#0000FF";
-                    for(var n=0;n<rectangles_ltrb.length;n++){
-                        if(captions[n].startsWith("W@")){
-                            ctx_boxes.fillRect(rectangles_ltrb[n][0], rectangles_ltrb[n][1], rectangles_ltrb[n][2]-rectangles_ltrb[n][0], rectangles_ltrb[n][3]-rectangles_ltrb[n][1]);
-                        }
-                    }
+                    
                     ctx_boxes.globalAlpha = 1.0;
                     ctx_boxes.lineWidth="2";
                     for(var n=0;n<rectangles_ltrb.length;n++){
                         ctx_boxes.rect(rectangles_ltrb[n][0], rectangles_ltrb[n][1], rectangles_ltrb[n][2]-rectangles_ltrb[n][0], rectangles_ltrb[n][3]-rectangles_ltrb[n][1]);
                     }
                     ctx_boxes.font = '18pt Calibri';
+                    ctx_boxes.fillStyle = transcription_font_color;
                     for(var n=0;n<rectangles_ltrb.length;n++){
                         var caption_list=captions[n].split("@");
                         caption_list.splice(0,1)
@@ -264,14 +385,22 @@ client_jinja_template="""<!doctype html>
                     ctx_active.stroke();
                     var loc_w=(document.documentElement.clientWidth+ltrb[2]+ltrb[0])/2;
                     var loc_h=(document.documentElement.clientHeight+ltrb[3]+ltrb[1])/2;
+                    selected_image_canvas,div_selected_id,div_selected_caption
+                    var canvas=document.getElementById("selected_image_canvas");
+                    
+                    document.getElementById("div_selected_id").innerHTML=""+active_box;
+                    document.getElementById("div_selected_caption").innerHTML=captions[active_box].split("@")[1];
+                    document.getElementById("div_selected_prefix").innerHTML=captions[active_box].split("@")[0];
                 }
             }
+            
             function scroll_to_active() {
                 var ltrb=rectangles_ltrb[active_box];
                 var move_to_x=((ltrb[2]+ltrb[0])-window.innerWidth)/2;
                 var move_to_y=((ltrb[3]+ltrb[1])-window.innerHeight)/2;
                 window.scrollTo(move_to_x,move_to_y);
             }
+            
             img.onload = function () {
                 load_preferences();
                 layer_image=$('#layer_image')[0]
@@ -334,11 +463,12 @@ client_jinja_template="""<!doctype html>
                     var b=Math.round(Math.max(mousePos.y,begin_y));
                     if((r-l)*(b-t)>25){
                         active_box=rectangles_ltrb.push([l,t,r,b])-1;
-                        //captions.push(caption_prefix);
-                        captions.push(caption_prefix+"@");
+                        var new_caption_prefix=document.getElementById("new_caption_prefix").innerHTML;
+                        captions.push(new_caption_prefix+"@");
                         draw_boxes();
                         draw_active();
                         upload_rectangles_captions();
+                        console.warn("CP: "+new_caption_prefix+"");
                     }else{
                         select_by_coordinates([(l+r)/2,(t+b)/2]);
                         draw_active();
@@ -394,18 +524,18 @@ client_jinja_template="""<!doctype html>
                             scroll_to_active();
                             break;
                         case  key_actions["Select Previous"]: //p -> previous
-                            active_box+=(rectangles_ltrb.length+1);
+                            active_box+=(rectangles_ltrb.length-1);
                             active_box=active_box%rectangles_ltrb.length;
                             draw_active();
                             scroll_to_active();
                             break;
                         case  key_actions["Set Caption Type"]: // c -> edit caption prefix
-                            var caption_prefix=document.getElementByID("caption_prefix").innerHTML;
-                            caption_prefix=window.prompt("Object Type",caption_prefix);
-                            if(caption_prefix == "W" || caption_prefix == "G" || caption_prefix == "L" || caption_prefix == "B"|| caption_prefix == ""){
-                                update_caption_prefix(caption_prefix);                                
+                            var new_caption_prefix=document.getElementByID("new_caption_prefix").innerHTML;
+                            new_caption_prefix=window.prompt("Object Type",caption_prefix);
+                            if(new_caption_prefix == "W" || new_caption_prefix == "G" || new_caption_prefix == "L" || new_caption_prefix == "B"|| new_caption_prefix == ""){
+                                update_new_caption_prefix(new_caption_prefix);                                
                             }else{
-                                update_caption_prefix(caption_prefix);
+                                update_new_caption_prefix(new_caption_prefix);
                             }
                             break;
                         case  key_actions["Delete Selected"]: //d -> delete
@@ -432,8 +562,8 @@ client_jinja_template="""<!doctype html>
                                 scroll_to_active();
                             }
                             break;                            
-                        case key_actions["Help"]: //h -> help
-                            toggle_help();
+                        case key_actions["Settings"]: //h -> help
+                            toggle_settings();
                             break;
                         default:
                             alert("Unknown code:"+evt.keyCode);
@@ -453,41 +583,61 @@ client_jinja_template="""<!doctype html>
     <div id="cover" style="{position: fixed; height: 100%; width: 100%; top:0; left: 0; background: #000; z-index:9999;}"></div>
     <div id="navigation_div">
         <table border=1>
-            <tr><td align="center" colspan="4">
+            <tr><td align="center" colspan="8">
+                <b>Selected Item</b>
+            </td><td align="center" colspan="4">
                 <b>Navigation</b>
             </td><td colspan="7"  align="center" >
                     <b>Object Types</b>
             </td></tr>
+                
             <tr><td>
-                <button id="btn_previous" onclick="save_preferences();window.location='/{{previous_id}}');">Previous</button>
+                <canvas id="selected_image_canvas" height="30px" width="150">
+                    This text is displayed if your browser does not support HTML5 Canvas.
+                </canvas>
+            <td/><td>
+                ID:
+            </td><td>
+                <div id="div_selected_id"></div>
+            </td><td>
+                Caption Type:
+            </td><td>
+                <div id="div_selected_prefix"></div>
+            </td><td>
+                Caption:
+            </td><td>
+                <div id="div_selected_caption"></div>
+            </td><td>
+                <button id="btn_previous" onclick="save_preferences();window.location='/{{previous_id}}';">Previous</button>
             </td><td>
                 <button id="btn_images" onclick="save_preferences();window.location='/';">Images</button>
             </td><td>
                 <button id="btn_next" onclick="save_preferences();window.location='/{{next_id}}';">Next</button>
             </td><td>
-                <button id="btn_help" onclick="toggle_help();save_preferences();">Help</button>
+                <button id="btn_help" onclick="toggle_settings();save_preferences();">Settings</button>
             </td><td>
-                <button id="btn_textblock" onclick="update_caption_prefix('B');save_preferences();">Textblock</button>
+                <button id="btn_textblock" onclick="update_new_caption_prefix('B');save_preferences();">Textblock</button>
             </td><td>
-                <button id="btn_textline" onclick="update_caption_prefix('L');save_preferences();">Textline</button>
+                <button id="btn_textline" onclick="update_new_caption_prefix('L');save_preferences();">Textline</button>
             </td><td>
-                <button id="btn_word" onclick="update_caption_prefix('W');save_preferences();">Word</button>
+                <button id="btn_word" onclick="update_new_caption_prefix('W');save_preferences();">Word</button>
             </td><td>
-                <button id="btn_graphic" onclick="update_caption_prefix('G');save_preferences();">Graphic</button>
+                <button id="btn_graphic" onclick="update_new_caption_prefix('G');save_preferences();">Graphic</button>
             </td><td>
-                <button id="btn_custom" onclick="update_caption_prefix('');save_preferences();">Custom</button>
+                <button id="btn_custom" onclick="update_new_caption_prefix('');save_preferences();">Custom</button>
             </td><td>
                 Current type:                
             </td><td align="center">
-                    <div id="caption_prefix">G</div>    
+                    <div id="new_caption_prefix">G</div>    
             </td></tr>
         </table>
     </div>
-    <div id="helpdiv">
-        <H3>Text groundtruther</H3>
+    <div id="settingsdiv">
+        <p><b>User:</b>
         <table><tr><td>User:</td><td><div id="user_name">N/A</div></td><td>
             <button onclick="user_name=window.prompt('Username',user_name);document.getElementById('user_name').innerHTML=user_name;">Edit</button>
         </td></tr><table>
+        <p><b>Shortcut Keys</b>
         <table id="keys_table">
             <tr><th>Action</th><th>Shortcut Symbol</th><th>Shortcut Code</th></tr>
             <tr><td> Edit Selected     </td><td>  13 </td><td>   </td></tr>
@@ -497,8 +647,32 @@ client_jinja_template="""<!doctype html>
             <tr><td> Delete Selected   </td><td> 100 </td><td> d </td></tr>
             <tr><td> Undelete Selected </td><td> 122 </td><td> z </td></tr>
             <tr><td> Set Caption Type  </td><td> 099 </td><td> c </td></tr>
-            <tr><td> Help              </td><td> 104 </td><td> h </td></tr>
+            <tr><td> Settings          </td><td> 104 </td><td> h </td></tr>
         </table>
+        </p>
+        <p><b>Color Preferences</b>
+        <table id="prefix_color_table" border=1>
+            <tr><th>Object Type</th><th>Caption Prefix</th><th colspan="2">Box Color</th><th>Empty Box Color</th><th><button onclick="set_colors();">Reset Defaults</button></th></tr>
+            
+            <tr><td> Words  </td><td> W </td><td><div id="w_prefix_color_empty">#FF0000</div></td><td><button onclick="set_colors('w_prefix_color_empty');">Change</button></td>
+                <td><div id="w_prefix_color_full">#AA0000</div></td><td><button onclick="set_colors('w_prefix_color_full');">Change</button></td><td></td></tr>
+            
+            <tr><td> Textlines  </td><td> L </td><td><div id="l_prefix_color_empty">#00FF00</div></td><td><button onclick="set_colors('l_prefix_color_empty');">Change</button></td>
+                <td><div id="l_prefix_color_full">#00AA00</div></td><td><button onclick="set_colors('l_prefix_color_full');">Change</button></td><td></td></tr>
+                
+            <tr><td> Graphics  </td><td> G </td><td><div id="g_prefix_color_empty">#0000FF</div></td><td><button onclick="set_colors('g_prefix_color_empty');">Change</button></td>
+                <td><div id="g_prefix_color_full">#0000FF</div></td><td><button onclick="set_colors('g_prefix_color_full');">Change</button></td><td></td></tr>
+                
+            <tr><td> Other  </td><td> * </td><td><div id="other_prefix_color_empty">#00FF00</div></td><td><button onclick="set_colors('other_prefix_color_empty');">Change</button></td>
+                <td><div id="other_prefix_color_full">#00FF00</div></td><td><button onclick="set_colors('other_prefix_color_full');">Change</button></td><td></td></tr>
+            
+            <tr><td> Transcription  </td><td> N/A </td><td> N/A </td></td><td>
+                <td><div id="transcription_font_color">#00FF00</div></td><td><button onclick="set_colors('transcription_font_color');">Change</button></td><td></td></tr>
+
+            <tr><td>Font Style:</td><td><div id="transcription_font_type">Calibri</div></td><td><button onclick="set_colors('transcription_font_type');">Change</button></td>
+                <td>Font Size:</td><td><div id="transcription_font_size">18pt</div></td><td><button onclick="set_colors('transcription_font_size');">Change</button></td></tr>
+        </table>
+        </p>
     </div>
     <div id="canvases_div" style="position:relative; width:400px; height:300px">
         <canvas id="layer_image"
@@ -557,7 +731,7 @@ class StringGeneratorWebService(object):
         self.next_id={self.ids[k-1]:self.ids[k] for k in range(1,len(self.ids))}
         self.next_id[self.ids[-1]]=""
         self.id2image_fnames=dict(id_paths)
-        self.id2thumbs={id:load_thumbd(fname) for id,fname in self.id2image_fnames.items()}
+        self.id2thumbs={id:load_thumbd(fname) for id,fname in tqdm.tqdm(self.id2image_fnames.items())}
         self.id2json_fnames={k:v[:v.rfind(".")]+".json" for k,v in self.id2image_fnames.items()}
         #self.json_list=[p[:p.rfind(".")]+".json" for p in image_list]
         self.annotator=jinja2.Template(annotator_template)
