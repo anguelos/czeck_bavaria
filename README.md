@@ -19,7 +19,9 @@ pip install --user jinja2 cherrypy opencv-python tqdm
 python ./bin/grouting sample_data/img/*jpg
 ```
 
-
 # sample_data/img
 
-Sample Images with a non restrictive licence.
+Sample Images with a non restrictive licence:
+* [mauscript1.jpg](https://c.pxhere.com/photos/70/1b/manuscript_ancient_writing_document_map_old_museum_archive-920944.jpg!d)
+* [mauscript2.jpg](https://c.pxhere.com/photos/09/5f/manuscript_book_ancient_old_document_archive-919448.jpg!d)
+
