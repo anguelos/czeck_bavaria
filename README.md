@@ -1,8 +1,12 @@
-Document image analysis tools.
+# Document image analysis tools.
 
-# bin/grouting
+## bin/grouting:
 
-An annotation tool running as a minimal webserver:
+An annotation tool running as a minimal webserver.
+
+This tool is designed for extremely fast annotation of text segmentation and transcription in historical manuscripts.
+The tool is extremely versatile and can annotate any kind of rectangles in images both as classes or captions.
+
 * grouting is a GROUnd-TruthIMG tool meant for rapid annotation of text regions in images.
 * No authorization or authentication is implemented. The service assumes a perfectly safe network firewall.
 * The service must be given one or more images as a parameter.
@@ -19,13 +23,13 @@ pip install --user jinja2 cherrypy opencv-python tqdm
 python ./bin/grouting sample_data/img/*jpg
 ```
 
-# sample_data/img
+## sample_data/img:
 
 Sample Images with a non restrictive licence:
 * [mauscript1.jpg](https://c.pxhere.com/photos/70/1b/manuscript_ancient_writing_document_map_old_museum_archive-920944.jpg!d)
 * [mauscript2.jpg](https://c.pxhere.com/photos/09/5f/manuscript_book_ancient_old_document_archive-919448.jpg!d)
 
-# Acknowledgement:
+## Acknowledgement:
 
 Development for this tool has been supported by the European project 211 "Modern access to historical sources" a Cross-border cooperation program
 Free State of Bavaria and the Czech Republic.
