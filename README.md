@@ -25,3 +25,9 @@ Sample Images with a non restrictive licence:
 * [mauscript1.jpg](https://c.pxhere.com/photos/70/1b/manuscript_ancient_writing_document_map_old_museum_archive-920944.jpg!d)
 * [mauscript2.jpg](https://c.pxhere.com/photos/09/5f/manuscript_book_ancient_old_document_archive-919448.jpg!d)
 
+# Acknowledgement:
+
+Development for this tool has been supported by the European project 211 "Modern access to historical sources" a Cross-border cooperation program
+Free State of Bavaria and the Czech Republic.
+
+<img src="./czeck_bavaria_logo.png" height="74" width="118">
