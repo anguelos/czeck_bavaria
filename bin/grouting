@@ -520,7 +520,8 @@ client_jinja_template="""<!doctype html>
                                 var current_caption_prefix=broken_caption[0];
                                 broken_caption.splice(0,1);
                                 var current_caption=broken_caption.join("@");
-                                captions[active_box]=current_caption_prefix+"@"+window.prompt("Caption",current_caption);                            
+                                captions[active_box]=current_caption_prefix+"@"+window.prompt("Caption",current_caption);
+                                upload_rectangles_captions();                            
                                 draw_boxes();
                             }else{
                                 alert("No object selected");
@@ -536,6 +537,7 @@ client_jinja_template="""<!doctype html>
                                 broken_caption.splice(0,1);
                                 var current_caption=broken_caption.join("@");
                                 captions[active_box]=current_caption_prefix+"@"+window.prompt("Caption",current_caption);
+                                upload_rectangles_captions();
                                 draw_boxes();
                             }else{
                                 alert("No object selected");
@@ -599,6 +601,7 @@ client_jinja_template="""<!doctype html>
             $(window).on('load', function() {
                 draw_boxes();
                 $("#cover").hide();
+                toggle_settings();
             });
         });
     </script>
