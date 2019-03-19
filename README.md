@@ -13,13 +13,23 @@ The tool is extremely versatile and can annotate any kind of rectangles in image
 * Groundtruth is stored by the server at same path as each provided image with a file-extention of .json
 * Once the server is started, point your browser to http://127.0.0.1:8080/ ; ideally use Google chrome.
 
+Installing as an app from pip:
+```bash
+pip install --user --upgrade git+https://github.com/anguelos/czeck_bavaria
+```
+
+Installing source from github:
 ```bash
 #Instaling requirements:
 pip install --user jinja2 cherrypy opencv-python tqdm
+git clone https://github.com/anguelos/czeck_bavaria
 ```
 
+Running
 ```bash
-#Starting the service:
+# When installed as an app:
+grouting image1.jpg image2.jpg
+# When installed as from source:
 python ./bin/grouting sample_data/img/*jpg
 ```
 
