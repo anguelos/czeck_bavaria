@@ -1,6 +1,13 @@
 # Modern Access to Historical Sources
 ### A Cross-border cooperation program between Free State of Bavaria and the Czech Republic
-<img src="./czeck_bavaria_logo.png" height="74" width="118">
+
+
+<table><tr><td>
+<img src="./eu_logo.png" height="74" width="160">
+</td><td>
+<img src="./czeck_bavaria_logo.png" height="74" width="160">
+</td></tr><table>
+
 
 Project 211 of the EU is aimed at making historical documents from Bavaria and the Czech Republic searchable by the broad public and experts alike in order to facilitate researching the common history shared by the two states.
 Automatic analysis indexing and mining of archives is a fundamental part of making such archives accessible.

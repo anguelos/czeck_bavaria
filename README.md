@@ -46,7 +46,8 @@ Free State of Bavaria and the Czech Republic.
 
 
 <table><tr><td>
-<img src="./czeck_bavaria_logo.png" height="74" width="150">
+<img src="./eu_logo.png" height="74" width="160">
 </td><td>
-<img src="./eu_logo.png" height="74" width="150">
+<img src="./czeck_bavaria_logo.png" height="74" width="160">
 </td></tr><table>
+
