@@ -45,3 +45,4 @@ Development for this tool has been supported by the European project 211 "Modern
 Free State of Bavaria and the Czech Republic.
 
 <img src="./czeck_bavaria_logo.png" height="74" width="118">
+<img src="./eu_logo.png" height="74" width="118">
