@@ -2,14 +2,14 @@
 ### A Cross-border cooperation program between Free State of Bavaria and the Czech Republic
 
 
-![EU logo](https://anguelos.github.io/czeck_bavaria/eu_czeck_bavaria_logo.png "")
+![EU logo](https://github.com/anguelos/czeck_bavaria/raw/master/docs/eu_czeck_bavaria_logo.png "")
 
 
 
 Project 211 of the EU is aimed at making historical documents from Bavaria and the Czech Republic searchable by the broad public and experts alike in order to facilitate researching the common history shared by the two states.
 Automatic analysis indexing and mining of archives is a fundamental part of making such archives accessible.
 
-![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png "Logo Title Text 1")
+
 
 ### Tecnical Aspects:
 Indexing and making searchable large databases of historical documents consists of many technical problems grouped in the following groups.
