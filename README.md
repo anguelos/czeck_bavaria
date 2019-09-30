@@ -45,9 +45,6 @@ Development for this tool has been supported by the European project 211 "Modern
 Free State of Bavaria and the Czech Republic.
 
 
-![](./eu_logo.png =150x74) ![](./czeck_bavaria_logo.png =150x74)
-
-
 <table><tr><td>
 <img src="./czeck_bavaria_logo.png" height="74" width="150">
 </td><td>
