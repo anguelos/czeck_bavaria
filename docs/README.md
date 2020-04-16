@@ -45,3 +45,4 @@ Metrics when Evaluating Embeddings (https://arxiv.org/pdf/1806.07171.pdf)
 
 #### Software
 * [Grouting](https://github.com/anguelos/czeck_bavaria): A fast groundtruthing tool for textual datasets.
+* [Writer Identification Toolkit](https://github.com/anguelos/wi19_evaluate): SRS-LBP baseline and performance evaluation suite for writer identification.
