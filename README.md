@@ -21,7 +21,7 @@ pip install --user --upgrade git+https://github.com/anguelos/czeck_bavaria
 Installing source from github:
 ```bash
 #Instaling requirements:
-pip install --user jinja2 cherrypy opencv-python tqdm
+pip2 install --user jinja2 cherrypy opencv-python==4.2.0.32 tqdm
 git clone https://github.com/anguelos/czeck_bavaria
 ```
 
