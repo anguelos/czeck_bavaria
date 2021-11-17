@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+
+import grouting
+import cherrypy
+import glob
+import sys
+import fargv
+import os
+import jinja2
+
+p = {
+    "image_list": set(glob.glob("./*.jpg"))
+}
+
+if __name__ == '__main__':
+    conf = {
+        #'/favicon.ico': {
+        #    'tools.staticfile.on': True,
+        #    'tools.staticfile.filename': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'favicon.ico'),
+        #    'tools.staticdir.debug': True,
+        #    'log.screen': True
+        #},
+        #'/grouting.js': {
+        #    'tools.staticfile.on': True,
+        #    'tools.staticfile.filename': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'grouting.js'),
+        #    'tools.staticdir.debug': True,
+        #    'log.screen': True
+        #},
+        '/': {
+        'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
+            'tools.encode.text_only': False,
+            'tools.sessions.on': True,
+            'tools.response_headers.on': True,
+            'tools.response_headers.headers': [('Content-Type', 'text/plain')],
+        }
+    }
+    p, _ = fargv.fargv(p)
+    print(type(grouting.grouting_jinja2))
+    page_id = p.image_list[0]
+    cherrypy.quickstart(grouting.StringGeneratorWebService(p.image_list, grouting.grouting_jinja2), '/', conf)
