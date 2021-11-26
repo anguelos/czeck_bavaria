@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Canvas Layers Test</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="./grouting.js"></script>
+    <script>
+        var class_label_values = [{name:"No Class", color:"#000000"},
+                                  {name:"Textura", color:"#2f4f4f"},
+                                  {name:"Rotunda", color:"#008000"},
+                                  {name:"Gotico-Antiqua", color:"#00FF00"},
+                                  {name:"Schwabacher", color:"#00008b"},
+                                  {name:"Fraktur", color:"#b03060"},
+                                  {name:"Bastarda", color:"#ff0000"},
+                                  {name:"Antiqua", color:"#ffff00"},
+                                  {name:"Italic", color:"#00ff00"},
+                                  {name:"Hebrew", color:"#00ffff"},
+                                  {name:"Greek", color:"#ff00ff"},
+                                  {name:"Manuscript", color:"#a0522d"},
+                                  {name:"Ignore", color:"#FFFFFF"}];
+        var boxes = [{ltrb:[100, 50, 400, 100], transcription:"a text block", class_id:2},
+                  {ltrb:[100, 50, 400, 100], transcription:"a text block", class_id:2},
+                  {ltrb:[100, 150, 450, 200], transcription:"another text block", class_id:1},
+                  {ltrb:[200, 250, 450, 300], transcription:"another text block", class_id:0}];
+        config={};
+        var classesUI = null;
+        function page_load(){
+            classesUI = new ClassIdEditor(class_label_values, "class_editor", "class_selector");
+            classesUI.write_gui(class_label_values);
+            canvaces = new Canvaces("canvaces","../../sample_data/img/manuscript1.jpg",JSON.stringify(boxes),JSON.stringify(class_label_values),config);
+        }
+    </script>
+
+</head>
+<body onload="page_load()">
+<div id="class_editor">
+    Class Editor
+</div>
+<div id="class_selector">
+    Class selector
+</div>
+<div id="canvaces">
+    Canvaces
+</div>
+</body>
+</html>
